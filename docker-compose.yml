@@ -1,0 +1,71 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: db_donaciones
+    restart: always
+    environment:
+      MYSQL_DATABASE: biblioteca_db
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: user_donaciones
+      MYSQL_PASSWORD: user_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./src/db/script.sql:/docker-entrypoint-initdb.d/script.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  web:
+    build:
+      context: ./src/web
+      dockerfile: Dockerfile
+    container_name: web_donaciones
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      DB_HOST: db
+      DB_NAME: biblioteca_db
+      DB_USER: user_donaciones
+      DB_PASS: user_password
+    volumes:
+      - ./src/web:/var/www/html
+      - reports_share:/var/www/html/reports
+    depends_on:
+      db:
+         condition: service_healthy
+    networks:
+      - app-network
+
+  logic:
+    build:
+      context: ./src/logic
+      dockerfile: Dockerfile
+    container_name: logic_donaciones
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_NAME: biblioteca_db
+      DB_USER: user_donaciones
+      DB_PASS: user_password
+    volumes:
+      - ./src/logic:/app
+      - reports_share:/app/reports
+    depends_on:
+      - db:
+           condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:
+  reports_share:
